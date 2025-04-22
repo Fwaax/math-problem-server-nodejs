@@ -1,11 +1,21 @@
 import express from 'express';
-const app = express();
-const port = 3000;
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import authRouter from './controllers/auth.controller';
+import userRouter from './controllers/user.controller';
 
-app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
 
-app.listen(port, () => {
-    return console.log(`Express is listening at http://localhost:${port}`);
-});
+async function main() {
+    dotenv.config();
+    const app = express();
+    app.use(express.json());
+
+    mongoose.connect(process.env.MONGO_URI!);
+
+    app.use('/auth', authRouter);
+    app.use('/user', userRouter);
+
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => console.log(`Listening on http://localhost:${port}`));
+}
+main()
