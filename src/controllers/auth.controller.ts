@@ -1,63 +1,56 @@
-
-import bcrypt from 'bcrypt';
+import express from 'express';
+import { loginSchema } from '../schemas/user.schema'; // your zod schema
 import User from '../models/user.model';
-import { registerSchema, loginSchema } from '../schemas/user.schema';
-import { generateToken } from '../utils/jwt.util';
-import { IApiResponse } from '~/interfaces';
-import { Router, Response, Request } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-const router = Router();
+const router = express.Router();
 
-// POST /auth/register
-router.post('/register', async (
-    req: Request,
-    res: Response<IApiResponse<string>>
-): Promise<void> => {
-    const parse = registerSchema.safeParse(req.body);
+router.post('/login', async (req, res) => {
+    const JWT_SECRET = process.env.JWT_SECRET;
+    const parseResult = loginSchema.safeParse(req.body);
+    console.log(`JWTsecret`, JWT_SECRET);
 
-    if (!parse.success) {
-        res.status(400).json({ data: null, message: parse.error.format().toString() });
-        return; // Return early after sending the response
-    }
+    if (!parseResult.success) {
 
-    const { email, password, firstName, lastName, dateOfBirth } = parse.data;
-
-    if (await User.findOne({ email })) {
-        res.status(409).json({ data: null, message: 'User already exists' });
-        return; // Return early after sending the response
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
-        email,
-        hashedPassword,
-        firstName,
-        lastName,
-        dateOfBirth,
-    });
-
-    res.status(201).json({ data: user.id, message: 'Registered' });
-});
-
-router.post('/login', async (
-    req: Request,
-    res: Response<IApiResponse<string>>
-) => {
-    const parse = loginSchema.safeParse(req.body);
-    if (!parse.success) {
-        res.status(400).json({ data: null, message: parse.error.format().toString() });
+        res.status(400).json({
+            data: null,
+            message: parseResult.error.flatten().fieldErrors
+        });
         return
     }
 
-    const { email, password } = parse.data;
-    const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.hashedPassword))) {
-        res.status(401).json({ data: null, message: 'Invalid credentials' });
+    const { email, password } = parseResult.data;
+
+    try {
+        const user = await User.findOne({ email }).select('+hashedPassword');
+        if (!user) {
+            res.status(403).json({ message: 'Email or password is incorrect' });
+            return
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.hashedPassword);
+        if (!passwordMatch) {
+            res.status(403).json({ message: 'Email or password is incorrect' });
+            return
+        }
+
+        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '24h' });
+
+        res.status(200).json({
+            token,
+            user: {
+                email: user.email,
+                firstName: user.firstName
+            }
+        });
+        return
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
         return
     }
-
-    const token = generateToken(user.id);
-    res.json({ data: token, message: 'Loged in' });
 });
 
 export default router;

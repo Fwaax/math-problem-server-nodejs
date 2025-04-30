@@ -1,16 +1,17 @@
+import dotenv from 'dotenv';
+dotenv.config(); // important: needs to be first line to read  otherwise all env variables will be undefined
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import authRouter from './controllers/auth.controller';
 import userRouter from './controllers/user.controller';
-
+import cors from 'cors';
 
 async function main() {
-    dotenv.config();
     const app = express();
     app.use(express.json());
+    app.use(cors());
 
-    mongoose.connect(process.env.MONGO_URI!);
+    mongoose.connect(process.env.DB_CONNECTION_URL);
 
     app.use('/auth', authRouter);
     app.use('/user', userRouter);
