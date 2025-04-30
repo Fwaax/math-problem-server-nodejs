@@ -8,6 +8,7 @@ export interface IPost extends Document {
     answers: string; // Same as content -- img
     upvotes: number;
     downvotes: number;
+    tag: string;
 }
 
 const postSchema = new Schema<IPost>({
@@ -17,7 +18,8 @@ const postSchema = new Schema<IPost>({
     // content:{}
     // answers:{}
     upvotes: { type: Number },
-    downvotes: { type: Number }
+    downvotes: { type: Number },
+    tag: { type: String }
 });
 
 export default model<IPost>('Post', postSchema)
