@@ -1,6 +1,6 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
-export interface IUser extends Document {
+export interface IUser {
     firstName: string;
     lastName: string;
     dateOfBirth: number;
@@ -8,7 +8,9 @@ export interface IUser extends Document {
     hashedPassword: string;
 }
 
-const userSchema = new Schema<IUser>({
+export interface IUserDocument extends IUser, Document<Types.ObjectId> { }
+
+const userSchema = new Schema<IUserDocument>({
     firstName: { type: String, default: 'John' },
     lastName: { type: String, default: 'Doe' },
     dateOfBirth: { type: Number, default: 0 },
@@ -16,4 +18,4 @@ const userSchema = new Schema<IUser>({
     hashedPassword: { type: String, required: true, select: false },
 });
 
-export default model<IUser>('User', userSchema);
+export default model<IUserDocument>('User', userSchema);

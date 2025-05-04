@@ -4,6 +4,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import authRouter from './controllers/auth.controller';
 import userRouter from './controllers/user.controller';
+import postRouter from './controllers/post.controller';
 import cors from 'cors';
 
 async function main() {
@@ -15,6 +16,7 @@ async function main() {
 
     app.use('/auth', authRouter);
     app.use('/user', userRouter);
+    app.use('/post', postRouter);
 
     const port = process.env.PORT || 3000;
     app.listen(port, () => console.log(`Listening on http://localhost:${port}`));
