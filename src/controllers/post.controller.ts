@@ -80,7 +80,7 @@ router.get(
 
 // GET /api/posts/:postId
 router.get(
-    '/posts/:postId',
+    '/:postId',
     authMiddleware,
     async (req: AuthRequest, res: Response<IApiResponse<EnrichedPost>>) => {
         try {
@@ -120,7 +120,7 @@ router.get(
 
 // POST /api/posts/:postId/vote
 router.post(
-    '/posts/:postId/vote',
+    '/vote/:postId',
     authMiddleware,
     async (req: AuthRequest, res: Response<IApiResponse<null>>) => {
         try {
@@ -196,41 +196,67 @@ router.post(
 
 // Endpoint to get the posts of a specific user with pagination
 router.get(
-    '/posts/:userId/posts',
+    '/posts/:userId',
     authMiddleware,
-    async (req: AuthRequest, res: Response<IApiResponse<EnrichedPost[]>>) => {
+    async (req: AuthRequest, res: Response<IApiResponse<{
+        page: number;
+        limit: number;
+        posts: EnrichedPost[];
+        totalCount: number;
+    }>>) => {
         try {
             const userId = req.params.userId;
             const user = await UserModel.findById(userId);
             if (!user) {
                 res.status(404).json({ message: 'User not found', data: null });
-                return
+                return;
             }
+
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = Math.min(parseInt(req.query.limit as string) || 10, 50); // Max 50
+            const skip = (page - 1) * limit;
 
             const posts = await PostModel.find({ uploader: user.email })
                 .sort({ date: -1 })
-                .limit(10);
+                .skip(skip)
+                .limit(limit);
 
-            const enrichedPosts: EnrichedPost[] = posts.map((post) => ({
-                _id: post._id,
-                title: post.title,
-                content: post.content,
-                uploader: post.uploader,
-                date: post.date,
-                tag: post.tag,
-                upvotes: 0,
-                downvotes: 0,
-                userVote: null,
-            }));
+            const totalCount = await PostModel.countDocuments({ uploader: user.email });
+
+            const enrichedPosts: EnrichedPost[] = await Promise.all(
+                posts.map(async (post) => {
+                    const voteSummary = await countVotes(post._id);
+                    const { voteObj } = await hasUserVoted(new Types.ObjectId(req.userId), post._id);
+
+                    return {
+                        _id: post._id,
+                        title: post.title,
+                        content: post.content,
+                        uploader: post.uploader,
+                        date: post.date,
+                        tag: post.tag,
+                        upvotes: voteSummary.upvotes,
+                        downvotes: voteSummary.downvotes,
+                        userVote: voteObj ? voteObj.isUpvote : null,
+                    };
+                })
+            );
 
             res.json({
                 message: 'Posts fetched successfully',
-                data: enrichedPosts,
+                data: {
+                    page,
+                    limit,
+                    posts: enrichedPosts,
+                    totalCount,
+                },
             });
         } catch (error) {
             res.status(500).json({ message: 'Failed to fetch posts', data: null });
         }
     }
 );
+
+
 
 export default router;
