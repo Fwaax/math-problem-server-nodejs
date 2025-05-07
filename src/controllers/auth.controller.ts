@@ -1,9 +1,9 @@
 import express from 'express';
-import { loginSchema } from '../schemas/user.schema';
+import { loginSchema, registerSchema } from '../schemas/user.schema';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middlewares/auth.middleware';
-import { getUserByEmail } from '../repositories/db.repository';
+import { getUserByEmail, addUser } from '../repositories/db.repository';
 
 const router = express.Router();
 
@@ -32,6 +32,36 @@ router.post('/login', async (req: AuthRequest, res) => {
 
         const token = jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '24h' });
         res.status(200).json({ token, user: { email: user.email, firstName: user.first_name } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+router.post('/register', async (req: AuthRequest, res) => {
+    const parseResult = registerSchema.safeParse(req.body);
+
+    if (!parseResult.success) {
+        res.status(400).json({ data: null, message: parseResult.error.flatten().fieldErrors });
+        return;
+    }
+
+    const { firstName, lastName, dateOfBirth, email, password } = parseResult.data;
+
+    try {
+        const { user, alreadyExists } = await addUser({
+            email,
+            first_name: firstName ?? 'John',
+            last_name: lastName ?? 'Doe',
+            date_of_birth: dateOfBirth ?? 0,
+            password
+        });
+
+        if (alreadyExists) {
+            res.status(409).json({ message: 'User with this email already exists', data: null });
+        } else {
+            res.status(201).json({ message: 'User registered successfully', data: { id: user.id } });
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Internal server error' });

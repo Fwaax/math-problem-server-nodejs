@@ -1,4 +1,4 @@
-import supabase from '~/utils/db';
+import supabase from '../utils/db';
 
 /**
  * Casts a vote by a user for a post (replaces existing vote).

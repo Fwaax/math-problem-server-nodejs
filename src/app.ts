@@ -6,18 +6,22 @@ import authRouter from './controllers/auth.controller';
 import userRouter from './controllers/user.controller';
 import postRouter from './controllers/post.controller';
 import cors from 'cors';
-import { createClient } from '@supabase/supabase-js';
 
 async function main() {
-    const app = express();
-    app.use(express.json());
-    app.use(cors());
+    try {
+        const app = express();
+        app.use(express.json());
+        app.use(cors());
+        app.use('/auth', authRouter);
+        app.use('/user', userRouter);
+        app.use('/post', postRouter);
+        const port = process.env.PORT || 3000;
+        app.listen(port, () => console.log(`Listening on http://localhost:${port}`));
 
-    app.use('/auth', authRouter);
-    app.use('/user', userRouter);
-    app.use('/post', postRouter);
 
-    const port = process.env.PORT || 3000;
-    app.listen(port, () => console.log(`Listening on http://localhost:${port}`));
+    } catch (err) {
+        console.error(`Failed to start server:`, err);
+    }
+
 }
 main()

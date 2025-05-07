@@ -1,4 +1,4 @@
-import supabase from '~/utils/db';
+import supabase from '../utils/db';
 import bcrypt from 'bcrypt';
 import { faker } from '@faker-js/faker'; // add faker if needed
 
@@ -29,16 +29,21 @@ export async function addUser(user: {
     last_name: string;
     password: string;
     date_of_birth: number;
-}) {
+}): Promise<{ user: any; alreadyExists: boolean }> {
     const { data: existingUser, error: selectError } = await supabase
         .from('users')
         .select('id')
         .eq('email', user.email)
         .limit(1);
+
     if (selectError) throw selectError;
-    if (existingUser && existingUser.length > 0) return existingUser[0];
+
+    if (existingUser && existingUser.length > 0) {
+        return { user: existingUser[0], alreadyExists: true };
+    }
 
     const hashedPassword = await bcrypt.hash(user.password, 10);
+
     const { data: newUser, error: insertError } = await supabase
         .from('users')
         .insert({
@@ -50,8 +55,10 @@ export async function addUser(user: {
         })
         .select('id')
         .single();
+
     if (insertError) throw insertError;
-    return newUser;
+
+    return { user: newUser, alreadyExists: false };
 }
 
 /** POST QUERIES **/
