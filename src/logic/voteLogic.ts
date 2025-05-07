@@ -1,71 +1,88 @@
-import { Types } from 'mongoose';
-import Vote, { IVote } from '../models/vote.model';
+import supabase from '~/utils/db';
 
-export const hasUserVoted = async (
-    userId: Types.ObjectId,
-    postId: Types.ObjectId
-): Promise<{ isExist: boolean; voteObj: IVote | null }> => {
-    const vote = await Vote.findOne({ votedBy: userId, votedPost: postId });
-    return {
-        isExist: !!vote,
-        voteObj: vote,
-    };
-};
+/**
+ * Casts a vote by a user for a post (replaces existing vote).
+ * @param userId The ID of the user voting
+ * @param postId The ID of the post being voted
+ * @param isUpvote True if upvote, false if downvote
+ */
+export async function castVote(userId: string, postId: string, isUpvote: boolean) {
+    try {
+        // Delete existing vote if exists
+        await supabase
+            .from('votes')
+            .delete()
+            .eq('voted_by', userId)
+            .eq('voted_post', postId);
 
-export const castVote = async (
-    userId: Types.ObjectId,
-    postId: Types.ObjectId,
-    isUpvote: boolean
-): Promise<void> => {
-    const existingVote = await Vote.findOne({ votedBy: userId, votedPost: postId });
+        // Insert new vote
+        const { error } = await supabase
+            .from('votes')
+            .insert({
+                voted_by: userId,
+                voted_post: postId,
+                is_upvote: isUpvote
+            });
 
-    if (existingVote) {
-        existingVote.isUpvote = isUpvote;
-        await existingVote.save();
-    } else {
-        await Vote.create({
-            votedBy: userId,
-            votedPost: postId,
-            isUpvote,
-        });
+        if (error) throw error;
+    } catch (err) {
+        console.error('Error casting vote:', err);
+        throw err;
     }
-};
+}
 
+/**
+ * Counts upvotes and downvotes for a post.
+ * @param postId The ID of the post
+ * @returns An object { upvotes, downvotes }
+ */
+export async function countVotes(postId: string): Promise<{ upvotes: number; downvotes: number }> {
+    try {
+        const { data: upvotesData, error: upvoteError } = await supabase
+            .from('votes')
+            .select('id', { count: 'exact', head: false })
+            .eq('voted_post', postId)
+            .eq('is_upvote', true);
 
-export const countVotes = async (
-    postId: Types.ObjectId
-): Promise<{ upvotes: number; downvotes: number }> => {
-    // Step 1: Match all votes for the given post
-    const groupedVotes = await Vote.aggregate([
-        { $match: { votedPost: postId } },
-        {
-            $group: {
-                _id: '$isUpvote',     // Group by isUpvote: true or false
-                count: { $sum: 1 },   // Count how many votes per group
-            },
-        },
-    ]);
+        const { data: downvotesData, error: downvoteError } = await supabase
+            .from('votes')
+            .select('id', { count: 'exact', head: false })
+            .eq('voted_post', postId)
+            .eq('is_upvote', false);
 
-    // Step 2: Initialize counters
-    let upvoteCount = 0;
-    let downvoteCount = 0;
+        if (upvoteError) throw upvoteError;
+        if (downvoteError) throw downvoteError;
 
-    // Step 3: Assign the grouped values to upvotes and downvotes
-    for (const voteGroup of groupedVotes) {
-        const isUpvote = voteGroup._id;
-        const count = voteGroup.count;
-
-        if (isUpvote === true) {
-            upvoteCount = count;
-        } else if (isUpvote === false) {
-            downvoteCount = count;
-        }
+        return {
+            upvotes: upvotesData?.length ?? 0,
+            downvotes: downvotesData?.length ?? 0
+        };
+    } catch (err) {
+        console.error('Error counting votes:', err);
+        throw err;
     }
+}
 
-    // Step 4: Return the result
-    return {
-        upvotes: upvoteCount,
-        downvotes: downvoteCount,
-    };
-};
+/**
+ * Checks if the user has voted on a post.
+ * @param userId The ID of the user
+ * @param postId The ID of the post
+ * @returns An object { voteObj } or null
+ */
+export async function hasUserVoted(userId: string, postId: string): Promise<{ voteObj: { is_upvote: boolean } | null }> {
+    try {
+        const { data, error } = await supabase
+            .from('votes')
+            .select('is_upvote')
+            .eq('voted_by', userId)
+            .eq('voted_post', postId)
+            .limit(1);
 
+        if (error) throw error;
+
+        return { voteObj: data?.[0] ?? null };
+    } catch (err) {
+        console.error('Error checking user vote:', err);
+        throw err;
+    }
+}
