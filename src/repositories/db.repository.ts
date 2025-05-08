@@ -1,4 +1,4 @@
-import supabase from '../utils/db';
+import supabase, { InsertUser, User } from '../utils/db';
 import bcrypt from 'bcrypt';
 import { faker } from '@faker-js/faker'; // add faker if needed
 
@@ -23,13 +23,9 @@ export async function getUserByEmail(email: string) {
     return data?.[0] ?? null;
 }
 
-export async function addUser(user: {
-    email: string;
-    first_name: string;
-    last_name: string;
-    password: string;
-    date_of_birth: number;
-}): Promise<{ user: any; alreadyExists: boolean }> {
+export async function addUser(
+    user: Omit<InsertUser, 'hashed_password'> & { password: string }
+): Promise<{ user: Pick<User, 'id'>; alreadyExists: boolean }> {
     const { data: existingUser, error: selectError } = await supabase
         .from('users')
         .select('id')
@@ -44,15 +40,17 @@ export async function addUser(user: {
 
     const hashedPassword = await bcrypt.hash(user.password, 10);
 
+    const insertUser: InsertUser = {
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        date_of_birth: user.date_of_birth,
+        hashed_password: hashedPassword,
+    };
+
     const { data: newUser, error: insertError } = await supabase
         .from('users')
-        .insert({
-            email: user.email,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            date_of_birth: user.date_of_birth,
-            hashed_password: hashedPassword
-        })
+        .insert(insertUser)
         .select('id')
         .single();
 
