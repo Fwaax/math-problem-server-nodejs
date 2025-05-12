@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../middlewares/auth.middleware';
 import * as RepoPost from '../repositories/post.repository';
 import * as RepoVote from '../repositories/vote.repository';
-import { faker } from '@faker-js/faker/.';
+import { faker } from '@faker-js/faker';
 
 const router = Router();
 
@@ -16,6 +16,9 @@ router.get('/posts', authMiddleware, async (req: AuthRequest, res) => {
         const count = await RepoPost.getPostsCount();
 
         const postIds = posts.map(p => p.id);
+        console.log('userId:', req.userId);
+        if (!req.userId) throw new Error('Missing userId in authMiddleware');
+
         const voteCounts = await RepoVote.getVoteCountsForPosts(postIds);
         const userVotes = await RepoVote.getUserVotesForPosts(postIds, req.userId);
 
@@ -25,7 +28,6 @@ router.get('/posts', authMiddleware, async (req: AuthRequest, res) => {
             downvotes: voteCounts[post.id]?.downvotes || 0,
             userVote: userVotes[post.id] ?? null
         }));
-
         res.json({ data: { posts: enrichedPosts, count }, message: 'Posts retrieved successfully' });
     } catch (error) {
         res.status(500).json({ data: null, message: 'Error retrieving posts' });

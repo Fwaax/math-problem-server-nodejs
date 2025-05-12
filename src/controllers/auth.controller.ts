@@ -3,6 +3,7 @@ import { loginSchema, registerSchema } from '../schemas/user.schema';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import * as RepoUser from '../repositories/user.repository';
+import { F } from '@faker-js/faker/dist/airline-BUL6NtOJ';
 
 const router = express.Router();
 
@@ -24,9 +25,14 @@ router.post('/login', async (req, res) => {
             return;
         }
 
-        const token = jwt.sign({ id: user.id }, JWT_SECRET!, { expiresIn: '1h' });
+        const objToSign = { id: user.id, userFirstName: user.first_name, userEmail: user.email };
+        const token = jwt.sign(objToSign, JWT_SECRET!, { expiresIn: '1h' });
 
-        res.json({ data: { token }, message: 'Login successful' });
+        res.json({
+            data: token,
+            message: 'Login successful'
+        });
+
     } catch (error) {
         res.status(500).json({ data: null, message: 'Error logging in' });
     }

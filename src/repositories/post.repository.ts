@@ -20,23 +20,33 @@ export async function createPost(post: Omit<Post, 'id'>) {
 }
 
 export async function getPosts(offset: number, limit: number) {
-    const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .range(offset, offset + limit - 1)
-        .order('date', { ascending: false });
+    try {
+        const { data, error } = await supabase
+            .from('posts')
+            .select('*')
+            .range(offset, offset + limit - 1)
+            .order('date', { ascending: false });
 
-    if (error) throw error;
-    return data;
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error retrieving posts:', error);
+    }
+
 }
 
 export async function getPostsCount() {
-    const { count, error } = await supabase
-        .from('posts')
-        .select('*', { count: 'exact', head: true });
+    try {
+        const { count, error } = await supabase
+            .from('posts')
+            .select('*', { count: 'exact', head: true });
 
-    if (error) throw error;
-    return count || 0;
+        if (error) throw error;
+        return count || 0;
+    } catch (error) {
+        console.error('Error retrieving post count:', error);
+    }
+
 }
 
 export async function getPostsByUser(userId: string, offset: number, limit: number) {

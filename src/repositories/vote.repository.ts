@@ -30,22 +30,27 @@ export async function deleteVote(voteId: string) {
 export async function getVoteCountsForPosts(postIds: string[]) {
     const { data, error } = await supabase
         .from('votes')
-        .select('voted_post, is_upvote, count(*) as count')
-        .in('voted_post', postIds)
-        .group('voted_post, is_upvote');
+        .select('voted_post, is_upvote')
+        .in('voted_post', postIds);
 
     if (error) throw error;
 
     const result: Record<string, { upvotes: number; downvotes: number }> = {};
-    postIds.forEach(id => result[id] = { upvotes: 0, downvotes: 0 });
+    postIds.forEach(id => {
+        result[id] = { upvotes: 0, downvotes: 0 };
+    });
 
     data.forEach(row => {
-        if (row.is_upvote) result[row.voted_post].upvotes = Number(row.count);
-        else result[row.voted_post].downvotes = Number(row.count);
+        if (row.is_upvote) {
+            result[row.voted_post].upvotes++;
+        } else {
+            result[row.voted_post].downvotes++;
+        }
     });
 
     return result;
 }
+
 
 export async function getUserVotesForPosts(postIds: string[], userId: string) {
     const { data, error } = await supabase
